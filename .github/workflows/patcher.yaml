@@ -6,6 +6,14 @@ on:
       framework_url:
         description: 'Direct URL to framework.jar'
         required: true
+      device_codename:
+        description: 'Device Codename (e.g., fog, gale, earth)'
+        required: true
+        default: 'generic'
+      os_version:
+        description: 'OS Version (e.g., Android 14, HyperOS 2.0)'
+        required: true
+        default: 'Android-14'
 
 permissions:
   contents: write
@@ -33,26 +41,35 @@ jobs:
           cd Toolbox-patcher
           cp ../framework.jar .
           ./scripts/patcher.sh framework.jar
-          # Pastikan file hasil patch ada di direktori yang benar
-          # Misalnya script menghasilkan 'framework_patched.jar'
-          # Kita pindahkan ke root folder agar mudah diakses
-          mv framework_patched.jar ../framework_patched.jar || cp framework.jar ../framework_patched.jar
+          
+          # Cek apakah output zip tersedia di folder Toolbox-patcher
+          if [ -f "kaoriosFramework.zip" ]; then
+            # Rename agar unik: kaoriosFramework-codename-os.zip
+            mv kaoriosFramework.zip ../kaoriosFramework-${{ github.event.inputs.device_codename }}-${{ github.event.inputs.os_version }}.zip
+          else
+            echo "Error: kaoriosFramework.zip tidak ditemukan!"
+            exit 1
+          fi
 
       - name: Generate Release Tag
         id: tag
         run: |
-          echo "release_tag=Patch_$(date +'%Y%m%d_%H%M%S')" >> $GITHUB_OUTPUT
+          TAG_NAME="${{ github.event.inputs.device_codename }}-${{ github.event.inputs.os_version }}-$(date +'%Y%m%d_%H%M%S')"
+          echo "release_tag=$TAG_NAME" >> $GITHUB_OUTPUT
 
       - name: Create Release and Upload
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.release_tag }}
-          name: Framework Patch - ${{ steps.tag.outputs.release_tag }}
+          name: "Patch: ${{ github.event.inputs.device_codename }} | ${{ github.event.inputs.os_version }}"
           body: |
-            Automated patch for framework.jar
-            Source URL: ${{ github.event.inputs.framework_url }}
+            ### Detail Patching
+            - **Device:** ${{ github.event.inputs.device_codename }}
+            - **OS Version:** ${{ github.event.inputs.os_version }}
+            - **Original File:** [framework.jar](${{ github.event.inputs.framework_url }})
+            - **Build Date:** $(date)
           files: |
-            framework_patched.jar
+            kaoriosFramework-*.zip
           draft: false
           prerelease: false
         env:
